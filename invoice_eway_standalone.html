@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TallyCloud AI — Invoice with E-Way Bill</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a1a; }
+
+  /* Layout */
+  .page { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; }
+
+  /* Header */
+  .card-header { padding: 18px 24px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-icon { width: 36px; height: 36px; background: #eff6ff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .header-title { font-size: 15px; font-weight: 600; color: #111; }
+  .header-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .inv-badge { font-family: monospace; font-size: 13px; color: #6b7280; background: #f9fafb; border: 1px solid #e5e7eb; padding: 5px 12px; border-radius: 8px; }
+
+  /* Sections */
+  .section { padding: 20px 24px; border-bottom: 1px solid #f3f4f6; }
+  .section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: #6b7280; }
+  .field input, .field select { height: 36px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0 10px; font-size: 13px; outline: none; font-family: inherit; background: #fff; color: #111; }
+  .field input:focus, .field select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { text-align: left; font-size: 11px; color: #9ca3af; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f9fafb; }
+  td input, td select { width: 100%; height: 30px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0 7px; font-size: 12px; outline: none; background: #f9fafb; font-family: inherit; color: #111; }
+  td input:focus, td select:focus { border-color: #3b82f6; background: #fff; }
+  .amt-cell { text-align: right; padding-right: 12px; font-family: monospace; font-size: 12px; font-weight: 600; color: #111; }
+  .del-btn { background: none; border: none; color: #d1d5db; cursor: pointer; font-size: 16px; padding: 4px; }
+  .del-btn:hover { color: #ef4444; }
+
+  .add-line-btn { font-size: 13px; color: #2563eb; background: none; border: none; cursor: pointer; padding: 6px 0; font-family: inherit; display: flex; align-items: center; gap: 5px; }
+  .add-line-btn:hover { color: #1d4ed8; }
+
+  /* Totals */
+  .totals-wrap { display: flex; justify-content: flex-end; }
+  .totals-box { width: 280px; background: #f9fafb; border-radius: 10px; padding: 14px 16px; }
+  .t-row { display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; padding: 3px 0; }
+  .t-row .v { font-family: monospace; }
+  .t-row.grand { font-size: 15px; font-weight: 600; color: #111; border-top: 1px solid #e5e7eb; margin-top: 6px; padding-top: 8px; }
+  .t-row.grand .v { color: #111; transition: color 0.2s; }
+  .t-row.grand .v.warn { color: #b45309; }
+
+  /* E-Way Banner — hidden by default */
+  .eway-banner { display: none; margin: 0 24px 4px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 12px; padding: 12px 16px; align-items: center; gap: 12px; }
+  .eway-banner.show { display: flex; }
+  .eway-icon { width: 32px; height: 32px; background: #f59e0b; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .eway-text .t { font-size: 13px; font-weight: 600; color: #78350f; }
+  .eway-text .s { font-size: 12px; color: #92400e; margin-top: 1px; }
+  .eway-gen-btn { margin-left: auto; flex-shrink: 0; background: #f59e0b; color: #451a03; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .eway-gen-btn:hover { background: #d97706; }
+
+  /* Actions bar */
+  .actions-bar { padding: 16px 24px; display: flex; align-items: center; gap: 10px; }
+  .btn-primary { background: #111827; color: #fff; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .btn-primary:hover { background: #1f2937; }
+  .btn-secondary { background: #fff; color: #374151; border: 1px solid #e5e7eb; border-radius: 10px; padding: 9px 14px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .btn-secondary:hover { background: #f9fafb; }
+  .threshold-note { margin-left: auto; font-size: 12px; color: #9ca3af; }
+  .threshold-note b { color: #374151; }
+
+  /* Drawer */
+  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; }
+  .drawer-overlay.open { display: flex; justify-content: flex-end; }
+  .drawer { width: 440px; max-width: 100%; background: #fff; height: 100%; display: flex; flex-direction: column; box-shadow: -4px 0 24px rgba(0,0,0,0.12); overflow-y: auto; }
+  .drawer-hdr { padding: 20px 22px 16px; border-bottom: 1px solid #f3f4f6; }
+  .drawer-tag { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: #d97706; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .drawer-close { margin-left: auto; background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 20px; line-height: 1; }
+  .drawer-title { font-size: 17px; font-weight: 700; color: #111; }
+  .drawer-sub { font-size: 12px; color: #6b7280; margin-top: 3px; }
+  .drawer-body { flex: 1; padding: 18px 22px; }
+  .d-info { background: #f9fafb; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .d-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+  .d-row .l { color: #6b7280; }
+  .d-row .v { font-weight: 600; color: #111; font-family: monospace; }
+  .d-row .v.big { font-size: 16px; color: #059669; }
+  .d-secure { display: flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 9px 12px; margin-bottom: 14px; font-size: 12px; color: #1e40af; }
+  .d-lock { width: 22px; height: 22px; background: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; font-size: 11px; }
+  .d-section { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .d-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .d-field { display: flex; flex-direction: column; gap: 4px; }
+  .d-field label { font-size: 12px; color: #6b7280; }
+  .d-field input, .d-field select { height: 34px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0 10px; font-size: 13px; outline: none; font-family: inherit; background: #fff; }
+  .d-field input:focus, .d-field select:focus { border-color: #3b82f6; }
+  .d-field.full { grid-column: 1 / -1; }
+  .d-submit { width: 100%; padding: 11px; background: #111827; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .d-submit:hover { background: #1f2937; }
+  .d-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+  .spinner { width: 16px; height: 16px; border: 2px solid #ffffff44; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Success */
+  .success-box { display: none; flex-direction: column; align-items: center; padding: 40px 24px; text-align: center; }
+  .success-box.show { display: flex; }
+  .success-circle { width: 56px; height: 56px; background: #d1fae5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; font-size: 26px; }
+  .success-title { font-size: 17px; font-weight: 700; color: #111; margin-bottom: 4px; }
+  .success-sub { font-size: 13px; color: #6b7280; margin-bottom: 14px; }
+  .ewb-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 20px; font-family: monospace; font-size: 15px; font-weight: 700; color: #111; margin-bottom: 12px; letter-spacing: 0.04em; }
+  .success-meta { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
+  .done-btn { background: #111827; color: #fff; border: none; border-radius: 10px; padding: 10px 28px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <div style="width:36px;height:36px;background:#1e3a5f;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="#60a5fa" stroke-width="1.4"/><path d="M5 8h8M5 11h5" stroke="#60a5fa" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </div>
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#111;">TallyCloud AI</div>
+      <div style="font-size:12px;color:#6b7280;">Sales Invoice — E-Way Bill auto-triggers at &#x20B9;50,000</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="header-left">
+        <div class="header-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="#2563eb" stroke-width="1.4"/><path d="M5 7.5h8M5 10.5h5" stroke="#2563eb" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="header-title">New sales invoice</div>
+          <div class="header-sub">E-Way Bill required when total &ge; &#x20B9;50,000</div>
+        </div>
+      </div>
+      <div class="inv-badge">INV-2024-091</div>
+    </div>
+
+    <!-- Party & Date -->
+    <div class="section">
+      <div class="section-label">Party &amp; date</div>
+      <div class="grid2">
+        <div class="field"><label>Party name</label><input id="partyName" value="Rajesh Traders" /></div>
+        <div class="field"><label>Party GSTIN</label><input id="partyGstin" value="07AADCB2230M1ZH" style="font-family:monospace"/></div>
+        <div class="field"><label>Invoice date</label><input type="date" value="2024-03-20" /></div>
+        <div class="field">
+          <label>Place of supply</label>
+          <select>
+            <option>Delhi (07)</option><option>Maharashtra (27)</option>
+            <option>Karnataka (29)</option><option>Tamil Nadu (33)</option>
+            <option>Gujarat (24)</option><option>Rajasthan (08)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Items -->
+    <div class="section">
+      <div class="section-label">Line items</div>
+      <div class="table-wrap">
+        <table>
+          <colgroup>
+            <col style="width:26%"><col style="width:10%"><col style="width:9%">
+            <col style="width:9%"><col style="width:11%"><col style="width:9%">
+            <col style="width:13%"><col style="width:5%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Item</th><th>HSN/SAC</th><th>Qty</th><th>Unit</th>
+              <th>Rate (&#x20B9;)</th><th>GST %</th><th>Amount (&#x20B9;)</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody">
+            <tr>
+              <td><input value="Surf Excel 1kg"/></td>
+              <td><input value="3402" style="font-family:monospace"/></td>
+              <td><input type="number" class="qty" value="200" min="0" oninput="recalc()"/></td>
+              <td><select><option>Pcs</option><option>Kg</option><option>Ltr</option><option>Box</option></select></td>
+              <td><input type="number" class="rate" value="95" min="0" oninput="recalc()"/></td>
+              <td><select class="gst" onchange="recalc()"><option value="18">18%</option><option value="12">12%</option><option value="5">5%</option><option value="0">0%</option></select></td>
+              <td class="amt-cell" id="a0">19,000.00</td>
+              <td><button class="del-btn" onclick="delRow(this)">&#xD7;</button></td>
+            </tr>
+            <tr>
+              <td><input value="Basmati Rice 5kg"/></td>
+              <td><input value="1006" style="font-family:monospace"/></td>
+              <td><input type="number" class="qty" value="30" min="0" oninput="recalc()"/></td>
+              <td><select><option>Bag</option><option>Pcs</option><option>Kg</option></select></td>
+              <td><input type="number" class="rate" value="300" min="0" oninput="recalc()"/></td>
+              <td><select class="gst" onchange="recalc()"><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option></select></td>
+              <td class="amt-cell" id="a1">9,000.00</td>
+              <td><button class="del-btn" onclick="delRow(this)">&#xD7;</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="add-line-btn" onclick="addRow()">&#xFF0B; Add line item</button>
+    </div>
+
+    <!-- Totals -->
+    <div class="section">
+      <div class="totals-wrap">
+        <div class="totals-box">
+          <div class="t-row"><span>Subtotal</span><span class="v" id="subtotal">&#x20B9;28,000.00</span></div>
+          <div class="t-row"><span>CGST</span><span class="v" id="cgst">&#x20B9;1,765.00</span></div>
+          <div class="t-row"><span>SGST</span><span class="v" id="sgst">&#x20B9;1,765.00</span></div>
+          <div class="t-row grand">
+            <span>Invoice total</span>
+            <span class="v" id="grandTotal">&#x20B9;31,530.00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- E-Way Bill Banner (hidden until total >= 50000) -->
+    <div class="eway-banner" id="ewayBanner">
+      <div class="eway-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 13H2L8 2Z" stroke="#451a03" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v2.5M8 11.5v.4" stroke="#451a03" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </div>
+      <div class="eway-text">
+        <div class="t">E-Way Bill required</div>
+        <div class="s">Invoice total &ge; &#x20B9;50,000 — GST Rule 138 mandates an E-Way Bill for this consignment</div>
+      </div>
+      <button class="eway-gen-btn" onclick="openDrawer()">
+        &#x1F69B; Generate now
+      </button>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-bar">
+      <button class="btn-primary" id="saveBtn" onclick="saveInvoice()">Save invoice</button>
+      <button class="btn-secondary">Print</button>
+      <button class="btn-secondary">Email</button>
+      <button class="btn-secondary">WhatsApp</button>
+      <span class="threshold-note">E-Way Bill threshold: <b>&#x20B9;50,000</b></span>
+    </div>
+  </div>
+</div>
+
+<!-- E-WAY BILL DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay">
+  <div style="flex:1;" onclick="closeDrawer()"></div>
+  <div class="drawer" id="drawerPanel">
+    <div class="drawer-hdr">
+      <div class="drawer-tag">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1.5L11 10.5H1L6 1.5Z" stroke="#d97706" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 5.5v2M6 9v.3" stroke="#d97706" stroke-width="1.2" stroke-linecap="round"/></svg>
+        E-Way Bill required
+        <button class="drawer-close" onclick="closeDrawer()">&#xD7;</button>
+      </div>
+      <div class="drawer-title">Generate E-Way Bill</div>
+      <div class="drawer-sub" id="drawerSub">Invoice total exceeds &#x20B9;50,000 — mandatory under GST Rule 138</div>
+    </div>
+
+    <div class="drawer-body" id="drawerForm">
+      <div class="d-info">
+        <div class="d-row"><span class="l">Invoice no.</span><span class="v">INV-2024-091</span></div>
+        <div class="d-row"><span class="l">Party</span><span class="v" id="dParty">Rajesh Traders</span></div>
+        <div class="d-row"><span class="l">GSTIN</span><span class="v" id="dGstin">07AADCB2230M1ZH</span></div>
+        <div class="d-row"><span class="l">Invoice total</span><span class="v big" id="dTotal">&#x20B9;31,530.00</span></div>
+      </div>
+
+      <div class="d-secure">
+        <div class="d-lock">&#x1F512;</div>
+        <span>NIC credentials loaded from AES-256 encrypted vault — never stored in plaintext</span>
+      </div>
+
+      <div class="d-section">Transport details</div>
+      <div class="d-grid2">
+        <div class="d-field">
+          <label>Mode of transport</label>
+          <select id="tMode"><option value="1">Road</option><option value="2">Rail</option><option value="3">Air</option><option value="4">Ship</option></select>
+        </div>
+        <div class="d-field">
+          <label>Distance (km)</label>
+          <input type="number" id="tDist" placeholder="e.g. 120" min="1"/>
+        </div>
+        <div class="d-field">
+          <label>Vehicle number</label>
+          <input type="text" id="tVeh" placeholder="DL 01 AB 1234" style="text-transform:uppercase"/>
+        </div>
+        <div class="d-field">
+          <label>Transporter GSTIN</label>
+          <input type="text" placeholder="Optional" style="font-family:monospace"/>
+        </div>
+        <div class="d-field full">
+          <label>Transporter name</label>
+          <input type="text" id="tName" placeholder="Enter transporter or logistics company"/>
+        </div>
+        <div class="d-field">
+          <label>Supply type</label>
+          <select><option>Outward supply</option><option>Inward supply</option><option>Job work</option></select>
+        </div>
+        <div class="d-field">
+          <label>Sub-supply type</label>
+          <select><option>Supply</option><option>Export</option><option>Job work returns</option></select>
+        </div>
+      </div>
+
+      <button class="d-submit" id="submitBtn" onclick="submitEway()">
+        <span id="submitLabel">Submit to NIC portal</span>
+        <div class="spinner" id="spin"></div>
+      </button>
+    </div>
+
+    <div class="success-box" id="successBox">
+      <div class="success-circle">&#x2713;</div>
+      <div class="success-title">E-Way Bill generated!</div>
+      <div class="success-sub">Saved to voucher &middot; Backed up to Google Drive</div>
+      <div class="ewb-box" id="ewbNumber">EWB &bull; 241024087563412</div>
+      <div class="success-meta">Valid 72 hours &middot; GST Rule 138 compliant &middot; QR code attached to PDF</div>
+      <button class="done-btn" onclick="closeDrawer()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── THE KEY RULE ─────────────────────────────────────────
+// E-Way Bill is required when invoice total >= ₹50,000
+const EWAY_THRESHOLD = 50000;
+
+function inr(n) {
+  return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function recalc() {
+  var rows = document.querySelectorAll('#itemsBody tr');
+  var sub = 0, c = 0, s = 0;
+
+  rows.forEach(function(row, i) {
+    var qty  = parseFloat(row.querySelector('.qty')?.value)  || 0;
+    var rate = parseFloat(row.querySelector('.rate')?.value) || 0;
+    var gst  = parseFloat(row.querySelector('.gst')?.value)  || 0;
+
+    var base    = Math.round(qty * rate * 100) / 100;
+    var tax     = Math.round(base * gst / 100 * 100) / 100;
+    var half    = Math.round(tax / 2 * 100) / 100;
+
+    sub += base;
+    c   += half;
+    s   += half;
+
+    var el = document.getElementById('a' + i);
+    if (el) el.textContent = base.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  });
+
+  sub = Math.round(sub * 100) / 100;
+  c   = Math.round(c   * 100) / 100;
+  s   = Math.round(s   * 100) / 100;
+  var grand = Math.round((sub + c + s) * 100) / 100;
+
+  document.getElementById('subtotal').textContent  = inr(sub);
+  document.getElementById('cgst').textContent      = inr(c);
+  document.getElementById('sgst').textContent      = inr(s);
+  document.getElementById('grandTotal').textContent = inr(grand);
+  document.getElementById('dTotal').textContent     = inr(grand);
+
+  var grandEl = document.getElementById('grandTotal');
+  var banner  = document.getElementById('ewayBanner');
+  var saveBtn = document.getElementById('saveBtn');
+
+  // ── E-Way Bill trigger: total >= ₹50,000 ──────────────
+  if (grand >= EWAY_THRESHOLD) {
+    banner.classList.add('show');
+    grandEl.classList.add('warn');
+    saveBtn.textContent = 'Save & Generate E-Way Bill';
+  } else {
+    banner.classList.remove('show');
+    grandEl.classList.remove('warn');
+    saveBtn.textContent = 'Save invoice';
+  }
+}
+
+function getTotal() {
+  var t = document.getElementById('grandTotal').textContent;
+  return parseFloat(t.replace(/[₹,]/g, '')) || 0;
+}
+
+function openDrawer() {
+  document.getElementById('dParty').textContent  = document.getElementById('partyName').value || '—';
+  document.getElementById('dGstin').textContent  = document.getElementById('partyGstin').value || '—';
+  document.getElementById('drawerForm').style.display = 'block';
+  document.getElementById('successBox').classList.remove('show');
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitLabel').textContent = 'Submit to NIC portal';
+  document.getElementById('spin').style.display = 'none';
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+function saveInvoice() {
+  if (getTotal() >= EWAY_THRESHOLD) {
+    openDrawer();
+  } else {
+    alert('Invoice saved! (No E-Way Bill required — total below ₹50,000)');
+  }
+}
+
+function submitEway() {
+  var btn  = document.getElementById('submitBtn');
+  var lbl  = document.getElementById('submitLabel');
+  var spin = document.getElementById('spin');
+  btn.disabled = true;
+  lbl.textContent = 'Submitting to NIC portal…';
+  spin.style.display = 'block';
+
+  setTimeout(function() {
+    spin.style.display = 'none';
+    document.getElementById('drawerForm').style.display = 'none';
+    document.getElementById('ewbNumber').textContent = 'EWB \u2022 241024087563412';
+    document.getElementById('successBox').classList.add('show');
+  }, 2200);
+}
+
+var rowCount = 2;
+function addRow() {
+  var idx = rowCount++;
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input placeholder="Item name"/></td>' +
+    '<td><input style="font-family:monospace" placeholder="HSN"/></td>' +
+    '<td><input type="number" class="qty" value="1" min="0" oninput="recalc()"/></td>' +
+    '<td><select><option>Pcs</option><option>Kg</option><option>Ltr</option><option>Box</option></select></td>' +
+    '<td><input type="number" class="rate" value="0" min="0" oninput="recalc()"/></td>' +
+    '<td><select class="gst" onchange="recalc()"><option value="18">18%</option><option value="12">12%</option><option value="5">5%</option><option value="0">0%</option></select></td>' +
+    '<td class="amt-cell" id="a' + idx + '">0.00</td>' +
+    '<td><button class="del-btn" onclick="delRow(this)">\u00D7</button></td>';
+  document.getElementById('itemsBody').appendChild(tr);
+  recalc();
+}
+
+function delRow(btn) {
+  btn.closest('tr').remove();
+  recalc();
+}
+
+// Initial calc
+recalc();
+</script>
+</body>
+</html>
